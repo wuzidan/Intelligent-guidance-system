@@ -17,15 +17,15 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from app01 import views
+
 # from app01.views import dkt_prediction
 urlpatterns = [
-    path('index/', views.index,name='index'),
-    path('user/list/',views.user_list),
-# path('dkt_prediction/', views.dkt_prediction),
-path('tpl/',views.tpl),
-path('user/add/',views.user_add),
-path('test/',views.test),
-path('update_aigroup/', views.update_aigroup_percent, name='update_aigroup_percent'),
-path('login/',views.login),
- path('challenge/<int:item_id>/', views.challenge_detail, name='challenge_detail'),
+
+    path('user', views.user_info_list),
+    # path('user/list/', views.user_list),
+    # path('dkt_prediction/', views.dkt_prediction),
+    # path('tpl/', views.tpl),
+    # path('user/add/', views.user_add),
+    # path('test/', views.test),
+    # path('login/', views.login),
 ]

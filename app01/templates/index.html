@@ -85,6 +85,22 @@
             margin-bottom: 20px;
         }
 
+        .sidebar .logo {
+            font-size: 24px;
+            font-weight: bold;
+            padding: 20px; /* 增加内边距 */
+            border-bottom: 1px solid #34495e;
+            margin-bottom: 20px;
+            text-align: center; /* 文字居中 */
+            display: block; /* 让 <a> 标签变成块级元素 */
+            color: white; /* 确保文字颜色是白色 */
+            text-decoration: none; /* 移除下划线（可选） */
+        }
+
+        .sidebar .logo:hover {
+            background-color: #34495e; /* 悬停时背景变深 */
+        }
+
         .container {
             display: flex;
             min-height: 100vh;
@@ -526,7 +542,7 @@
 <body>
 <div class="container">
     <nav class="sidebar">
-        <div class="logo">课程管理系统</div>
+        <a href="{% url 'index' %}" class="logo">课程管理系统</a>
         <ul class="menu">
             <li class="menu-item">
                 <div class="menu-title">
