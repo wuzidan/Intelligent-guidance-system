@@ -19,7 +19,6 @@ class MLP(nn.Module):
         self.fc1 = nn.Linear(input_dim, hidden_dim, bias=bias)
         self.fc2 = nn.Linear(hidden_dim, output_dim, bias=bias)
         self.norm = nn.BatchNorm1d(output_dim)
-        # the paper said they added Batch Normalization for the output of MLPs, as shown in Section 4.2
         self.dropout = dropout
         self.output_dim = output_dim
         self.init_weights()
@@ -35,21 +34,19 @@ class MLP(nn.Module):
 
     def batch_norm(self, inputs):
         if inputs.numel() == self.output_dim or inputs.numel() == 0:
-            # batch_size == 1 or 0 will cause BatchNorm error, so return the input directly
             return inputs
         if len(inputs.size()) == 3:
             x = inputs.view(inputs.size(0) * inputs.size(1), -1)
             x = self.norm(x)
             return x.view(inputs.size(0), inputs.size(1), -1)
-        else:  # len(input_size()) == 2
+        else:
             return self.norm(inputs)
 
     def forward(self, inputs):
         x = F.relu(self.fc1(inputs))
-        x = F.dropout(x, self.dropout, training=self.training)  # pay attention to add training=self.training
+        x = F.dropout(x, self.dropout, training=self.training)
         x = F.relu(self.fc2(x))
         return self.batch_norm(x)
-
 
 class EraseAddGate(nn.Module):
     """
@@ -61,12 +58,9 @@ class EraseAddGate(nn.Module):
 
     def __init__(self, feature_dim, concept_num, bias=True):
         super(EraseAddGate, self).__init__()
-        # weight
         self.weight = nn.Parameter(torch.rand(concept_num))
         self.reset_parameters()
-        # erase gate
         self.erase = nn.Linear(feature_dim, feature_dim, bias=bias)
-        # add gate
         self.add = nn.Linear(feature_dim, feature_dim, bias=bias)
 
     def reset_parameters(self):
@@ -74,23 +68,23 @@ class EraseAddGate(nn.Module):
         self.weight.data.uniform_(-stdv, stdv)
 
     def forward(self, x):
-        r"""
-        Params:
-            x: input feature matrix
-        Shape:
-            x: [batch_size, concept_num, feature_dim]
-            res: [batch_size, concept_num, feature_dim]
-        Return:
-            res: returned feature matrix with old information erased and new information added
-        The GKT paper didn't provide detailed explanation about this erase-add gate. As the erase-add gate in the GKT only has one input parameter,
-        this gate is different with that of the DKVMN. We used the input matrix to build the erase and add gates, rather than $\mathbf{v}_{t}$ vector in the DKVMN.
-        """
-
-        erase_gate = torch.sigmoid(self.erase(x))  # [batch_size, concept_num, feature_dim]
-        # self.weight.unsqueeze(dim=1) shape: [concept_num, 1]
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            print(f"NaN/Inf in EraseAddGate input, resetting affected values")
+            x = x.clone()
+            x[torch.isnan(x) | torch.isinf(x)] = 0.0
+        erase_gate = torch.sigmoid(self.erase(x))
+        if torch.isnan(erase_gate).any() or torch.isinf(erase_gate).any():
+            print(f"NaN/Inf in erase_gate")
         tmp_x = x - self.weight.unsqueeze(dim=1) * erase_gate * x
-        add_feat = torch.tanh(self.add(x))  # [batch_size, concept_num, feature_dim]
+        if torch.isnan(tmp_x).any() or torch.isinf(tmp_x).any():
+            print(f"NaN/Inf in tmp_x")
+        add_feat = torch.tanh(self.add(x))
+        if torch.isnan(add_feat).any() or torch.isinf(add_feat).any():
+            print(f"NaN/Inf in add_feat")
         res = tmp_x + self.weight.unsqueeze(dim=1) * add_feat
+        if torch.isnan(res).any() or torch.isinf(res).any():
+            print(f"NaN/Inf in EraseAddGate output, resetting affected values")
+            res[torch.isnan(res) | torch.isinf(res)] = 0.0
         return res
 
 

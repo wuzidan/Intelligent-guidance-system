@@ -3,6 +3,7 @@ import time
 import random
 import argparse
 import pickle
+import sys
 import os
 import gc
 import datetime
@@ -44,7 +45,7 @@ parser.add_argument('--no-factor', action='store_true', default=False, help='Dis
 parser.add_argument('--prior', action='store_true', default=False, help='Whether to use sparsity prior.')
 parser.add_argument('--var', type=float, default=1, help='Output variance.')
 parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train.')
-parser.add_argument('--batch-size', type=int, default=32, help='Number of samples per batch.')
+parser.add_argument('--batch-size', type=int, default=8, help='Number of samples per batch.')
 parser.add_argument('--train-ratio', type=float, default=0.6, help='The ratio of training samples in a dataset.')
 parser.add_argument('--val-ratio', type=float, default=0.2, help='The ratio of validation samples in a dataset.')
 parser.add_argument('--shuffle', type=bool, default=True, help='Whether to shuffle the dataset or not.')
@@ -128,7 +129,7 @@ else:
 kt_loss = KTLoss()
 
 # build optimizer
-optimizer = optim.Adam(model.parameters(), lr=args.lr)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
 scheduler = lr_scheduler.StepLR(optimizer, step_size=args.lr_decay, gamma=args.gamma)
 
 # load model/optimizer/scheduler params
@@ -178,49 +179,51 @@ def train(epoch, best_val_loss):
         graph_model.train()
     model.train()
     for batch_idx, (features, questions, answers) in enumerate(train_loader):
+        # 逐批次检查输入数据
         if torch.isnan(features).any() or torch.isinf(features).any():
-            print(f"Batch {batch_idx}: Invalid features!")
+            print(f"Epoch {epoch}, Batch {batch_idx}: Invalid features - min={features.min().item()}, max={features.max().item()}")
         if torch.isnan(questions).any() or torch.isinf(questions).any():
-            print(f"Batch {batch_idx}: Invalid questions!")
+            print(f"Epoch {epoch}, Batch {batch_idx}: Invalid questions - min={questions.min().item()}, max={questions.max().item()}")
         if torch.isnan(answers).any() or torch.isinf(answers).any():
-            print(f"Batch {batch_idx}: Invalid answers!")
+            print(f"Epoch {epoch}, Batch {batch_idx}: Invalid answers - min={answers.min().item()}, max={answers.max().item()}")
+
         t1 = time.time()
         if args.cuda:
             features, questions, answers = features.cuda(), questions.cuda(), answers.cuda()
         batch_size, seq_len = features.shape
         ht = torch.zeros((batch_size, model.concept_num, model.hidden_dim), device=features.device)
-        if batch_idx == 64:
-            if torch.isnan(features).any() or torch.isinf(features).any():
-                print(
-                    f"Epoch {epoch}, Batch {batch_idx}: Invalid features - min={features.min().item()}, max={features.max().item()}")
-            if torch.isnan(questions).any() or torch.isinf(questions).any():
-                print(
-                    f"Epoch {epoch}, Batch {batch_idx}: Invalid questions - min={questions.min().item()}, max={questions.max().item()}")
-            for i in range(seq_len):
-                xt = features[:, i]
-                qt = questions[:, i]
-                if torch.isnan(xt).any() or torch.isinf(xt).any() or torch.isnan(qt).any() or torch.isinf(qt).any():
-                    print(
-                        f"Epoch {epoch}, Batch {batch_idx}, Step {i}: Invalid input - xt min={xt.min().item()}, max={xt.max().item()}, qt min={qt.min().item()}, max={qt.max().item()}")
-                tmp_ht = model._aggregate(xt, qt, ht, batch_size)
-                if torch.isnan(tmp_ht).any() or torch.isinf(tmp_ht).any():
-                    print(
-                        f"Epoch {epoch}, Batch {batch_idx}, Step {i} - tmp_ht: min={tmp_ht.min().item()}, max={tmp_ht.max().item()}")
-                h_next, _, _, _ = model._update(tmp_ht, ht, qt)
-                if torch.isnan(h_next).any() or torch.isinf(h_next).any():
-                    print(
-                        f"Epoch {epoch}, Batch {batch_idx}, Step {i} - h_next: min={h_next.min().item()}, max={h_next.max().item()}")
-                yt = model._predict(h_next, qt)
-                if torch.isnan(yt).any() or torch.isinf(yt).any():
-                    print(
-                        f"Epoch {epoch}, Batch {batch_idx}, Step {i} - yt: min={yt.min().item()}, max={yt.max().item()}")
-                ht = h_next
+
+        # 序列步长内的逐步检查
+        for i in range(seq_len):
+            xt = features[:, i]
+            qt = questions[:, i]
+            if torch.isnan(xt).any() or torch.isinf(xt).any() or torch.isnan(qt).any() or torch.isinf(qt).any():
+                print(f"Epoch {epoch}, Batch {batch_idx}, Step {i}: Invalid input - xt min={xt.min().item()}, max={xt.max().item()}, qt min={qt.min().item()}, max={qt.max().item()}")
+            tmp_ht = model._aggregate(xt, qt, ht, batch_size)
+            if torch.isnan(tmp_ht).any() or torch.isinf(tmp_ht).any():
+                print(f"Epoch {epoch}, Batch {batch_idx}, Step {i} - tmp_ht: min={tmp_ht.min().item()}, max={tmp_ht.max().item()}")
+                # 打印所有参数的范围
+                for name, param in model.named_parameters():
+                    print(f"Parameter {name} min={param.min().item()}, max={param.max().item()}")
+                sys.exit("NaN detected in tmp_ht, stopping execution.")
+            h_next, _, _, _ = model._update(tmp_ht, ht, qt, batch_size)
+            if torch.isnan(h_next).any() or torch.isinf(h_next).any():
+                print(f"Epoch {epoch}, Batch {batch_idx}, Step {i} - h_next: min={h_next.min().item()}, max={h_next.max().item()}")
+                # 打印所有参数的范围
+                for name, param in model.named_parameters():
+                    print(f"Parameter {name} min={param.min().item()}, max={param.max().item()}")
+                sys.exit("NaN detected in h_next, stopping execution.")
+            yt = model._predict(h_next, qt)
+            if torch.isnan(yt).any() or torch.isinf(yt).any():
+                print(f"Epoch {epoch}, Batch {batch_idx}, Step {i} - yt: min={yt.min().item()}, max={yt.max().item()}")
+                # 打印所有参数的范围
+                for name, param in model.named_parameters():
+                    print(f"Parameter {name} min={param.min().item()}, max={param.max().item()}")
+                sys.exit("NaN detected in yt, stopping execution.")
+            ht = h_next
+
         if args.model == 'GKT':
-            if torch.isnan(features).any() or torch.isinf(features).any():
-                print("Invalid features detected!")
-            if torch.isnan(questions).any() or torch.isinf(questions).any():
-                print("Invalid questions detected!")
-            pred_res, ec_list, rec_list, z_prob_list = model(features, questions)
+            pred_res, ec_list, rec_list, z_prob_list = model(features, questions,batch_idx)
         else:
             raise NotImplementedError(args.model + ' model is not implemented!')
         loss_kt, auc, acc = kt_loss(pred_res, answers)
@@ -234,21 +237,30 @@ def train(epoch, best_val_loss):
                 loss_vae = vae_loss(ec_list, rec_list, z_prob_list, log_prior=log_prior)
             else:
                 loss_vae = vae_loss(ec_list, rec_list, z_prob_list)
-                vae_train.append(float(loss_vae.cpu().detach().numpy()))
+            vae_train.append(float(loss_vae.cpu().detach().numpy()))
             print('batch idx: ', batch_idx, 'loss kt: ', loss_kt.item(), 'loss vae: ', loss_vae.item(), 'auc: ', auc, 'acc: ', acc, end=' ')
             loss = loss_kt + loss_vae
         else:
             loss = loss_kt
             print('batch idx: ', batch_idx, 'loss kt: ', loss_kt.item(), 'auc: ', auc, 'acc: ', acc, end=' ')
         loss_train.append(float(loss.cpu().detach().numpy()))
+        loss_train.append(float(loss.cpu().detach().numpy()))
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(),max_norm=1.0)
-        for name,param in model.named_parameters():
+        for name, param in model.named_parameters():
+            if param.grad is not None and (torch.isnan(param.grad).any() or torch.isinf(param.grad).any()):
+                print(f"Epoch {epoch}, Batch {batch_idx}, NaN/Inf gradient in {name}, resetting to zero")
+                param.grad[torch.isnan(param.grad) | torch.isinf(param.grad)] = 0.0
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.25)
+        # 降低 max_norm 到 0.25，确保 NaN 梯度被重置。
+        for name, param in model.named_parameters():
             if param.grad is not None:
                 print(f"{name} grad:{param.grad.norm().item()}")
             else:
                 print(f"{name} grad: None")
         optimizer.step()
+        for name, param in model.named_parameters():
+            if torch.isnan(param).any():
+                print(f"Epoch {epoch}, Batch {batch_idx}, NaN parameter in {name} after update")
         scheduler.step()
         optimizer.zero_grad()
         del loss
@@ -269,7 +281,7 @@ def train(epoch, best_val_loss):
                 features, questions, answers = features.cuda(), questions.cuda(), answers.cuda()
             ec_list, rec_list, z_prob_list = None, None, None
             if args.model == 'GKT':
-                pred_res, ec_list, rec_list, z_prob_list = model(features, questions)
+                pred_res, ec_list, rec_list, z_prob_list = model(features, questions,batch_idx)
             elif args.model == 'DKT':
                 pred_res = model(features, questions)
             else:

@@ -54,7 +54,11 @@ def load_dataset(file_path, batch_size, graph_type, dkt_graph_path=None, train_r
         test_data_loader: data loader of the test dataset
     NOTE: stole some code from https://github.com/lccasagrande/Deep-Knowledge-Tracing/blob/master/deepkt/data_util.py
     """
-    df = pd.read_csv(file_path)
+    # 加载 CSV 文件并删除第 17 列
+    df = pd.read_csv(file_path, low_memory=False)  # 禁用低内存模式以避免警告
+    if len(df.columns) > 17:  # 确保有第 17 列
+        df = df.drop(df.columns[17], axis=1)  # 删除第 17 列 (索引从 0 开始)
+
     if "skill_id" not in df.columns:
         raise KeyError(f"The column 'skill_id' was not found on {file_path}")
     if "correct" not in df.columns:
@@ -80,7 +84,6 @@ def load_dataset(file_path, batch_size, graph_type, dkt_graph_path=None, train_r
         df['skill_with_answer'] = df['skill'] * 2 + df['correct']
     else:
         df['skill_with_answer'] = df['skill'] * res_len + df['correct'] - 1
-
 
     # Step 4 - Convert to a sequence per user id and shift features 1 timestep
     feature_list = []

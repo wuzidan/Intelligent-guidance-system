@@ -77,71 +77,69 @@ class GKT(nn.Module):
 
     # Aggregate step, as shown in Section 3.2.1 of the paper
     def _aggregate(self, xt, qt, ht, batch_size):
-        r"""
-        Parameters:
-            xt: input one-hot question answering features at the current timestamp
-            qt: question indices for all students in a batch at the current timestamp
-            ht: hidden representations of all concepts at the current timestamp
-            batch_size: the size of a student batch
-        Shape:
-            xt: [batch_size]
-            qt: [batch_size]
-            ht: [batch_size, concept_num, hidden_dim]
-            tmp_ht: [batch_size, concept_num, hidden_dim + embedding_dim]
-        Return:
-            tmp_ht: aggregation results of concept hidden knowledge state and concept(& response) embedding
-        """
-        qt_mask = torch.ne(qt, -1)  # [batch_size], qt != -1
+        qt_mask = torch.ne(qt, -1)
         x_idx_mat = torch.arange(self.res_len * self.concept_num, device=xt.device)
-        x_embedding = self.emb_x(x_idx_mat)  # [res_len * concept_num, embedding_dim]
-        masked_feat = F.embedding(xt[qt_mask], self.one_hot_feat)  # [mask_num, res_len * concept_num]
-        res_embedding = masked_feat.mm(x_embedding)  # [mask_num, embedding_dim]
+        x_embedding = self.emb_x(x_idx_mat)
+        # 检查嵌入层权重
+        if torch.isnan(self.emb_x.weight).any() or torch.isinf(self.emb_x.weight).any():
+            print(f"NaN/Inf in emb_x.weight, resetting affected weights")
+            with torch.no_grad():
+                self.emb_x.weight.data[torch.isnan(self.emb_x.weight) | torch.isinf(self.emb_x.weight)] = 0.0
+        if torch.isnan(x_embedding).any() or torch.isinf(x_embedding).any():
+            print(f"NaN/Inf in x_embedding after indexing")
+        # 验证 xt 索引
+        valid_xt = xt[qt_mask]
+        if valid_xt.numel() == 0 or torch.any(valid_xt < 0) or torch.any(valid_xt >= self.res_len * self.concept_num):
+            print(
+                f"Invalid xt indices, min={valid_xt.min().item() if valid_xt.numel() else -1}, max={valid_xt.max().item() if valid_xt.numel() else -1}")
+            return torch.zeros_like(ht)
+        masked_feat = F.embedding(valid_xt, self.one_hot_feat)
+        if torch.isnan(masked_feat).any() or torch.isinf(masked_feat).any():
+            print(f"NaN/Inf in masked_feat, xt[qt_mask] min={valid_xt.min().item()}, max={valid_xt.max().item()}")
+        res_embedding = masked_feat.mm(x_embedding)
+        if torch.isnan(res_embedding).any() or torch.isinf(res_embedding).any():
+            print(f"NaN/Inf in res_embedding after mm")
         mask_num = res_embedding.shape[0]
-
         concept_idx_mat = self.concept_num * torch.ones((batch_size, self.concept_num), device=xt.device).long()
         concept_idx_mat[qt_mask, :] = torch.arange(self.concept_num, device=xt.device)
-        concept_embedding = self.emb_c(concept_idx_mat)  # [batch_size, concept_num, embedding_dim]
-
+        concept_embedding = self.emb_c(concept_idx_mat)
+        # 检查 emb_c 权重
+        if torch.isnan(self.emb_c.weight).any() or torch.isinf(self.emb_c.weight).any():
+            print(f"NaN/Inf in emb_c.weight, resetting affected weights")
+            with torch.no_grad():
+                self.emb_c.weight.data[torch.isnan(self.emb_c.weight) | torch.isinf(self.emb_c.weight)] = 0.0
+        if torch.isnan(concept_embedding).any() or torch.isinf(concept_embedding).any():
+            print(f"NaN/Inf in concept_embedding before update")
         index_tuple = (torch.arange(mask_num, device=xt.device), qt[qt_mask].long())
         concept_embedding[qt_mask] = concept_embedding[qt_mask].index_put(index_tuple, res_embedding)
-        tmp_ht = torch.cat((ht, concept_embedding), dim=-1)  # [batch_size, concept_num, hidden_dim + embedding_dim]
+        tmp_ht = torch.cat((ht, concept_embedding), dim=-1)
+        tmp_ht = torch.clamp(tmp_ht, min=-1e6, max=1e6)
+        if torch.isnan(tmp_ht).any() or torch.isinf(tmp_ht).any():
+            print(f"NaN/Inf in tmp_ht after clamp, investigating inputs")
+            print(f"ht min={ht.min().item()}, max={ht.max().item()}, nan={torch.isnan(ht).any()}")
+            print(
+                f"concept_embedding min={concept_embedding.min().item()}, max={concept_embedding.max().item()}, nan={torch.isnan(concept_embedding).any()}")
         return tmp_ht
-
     # GNN aggregation step, as shown in 3.3.2 Equation 1 of the paper
     def _agg_neighbors(self, tmp_ht, qt):
-        r"""
-        Parameters:
-            tmp_ht: temporal hidden representations of all concepts after the aggregate step
-            qt: question indices for all students in a batch at the current timestamp
-        Shape:
-            tmp_ht: [batch_size, concept_num, hidden_dim + embedding_dim]
-            qt: [batch_size]
-            m_next: [batch_size, concept_num, hidden_dim]
-        Return:
-            m_next: hidden representations of all concepts aggregating neighboring representations at the next timestamp
-            concept_embedding: input of VAE (optional)
-            rec_embedding: reconstructed input of VAE (optional)
-            z_prob: probability distribution of latent variable z in VAE (optional)
-        """
-        qt_mask = torch.ne(qt, -1)  # [batch_size], qt != -1
-        masked_qt = qt[qt_mask]  # [mask_num, ]
-        masked_tmp_ht = tmp_ht[qt_mask]  # [mask_num, concept_num, hidden_dim + embedding_dim]
+        qt_mask = torch.ne(qt, -1)
+        masked_qt = qt[qt_mask]
+        masked_tmp_ht = tmp_ht[qt_mask]
         mask_num = masked_tmp_ht.shape[0]
         self_index_tuple = (torch.arange(mask_num, device=qt.device), masked_qt.long())
-        self_ht = masked_tmp_ht[self_index_tuple]  # [mask_num, hidden_dim + embedding_dim]
-        self_features = self.f_self(self_ht)  # [mask_num, hidden_dim]
-        expanded_self_ht = self_ht.unsqueeze(dim=1).repeat(1, self.concept_num, 1)  #[mask_num, concept_num, hidden_dim + embedding_dim]
-        neigh_ht = torch.cat((expanded_self_ht, masked_tmp_ht), dim=-1)  #[mask_num, concept_num, 2 * (hidden_dim + embedding_dim)]
+        self_ht = masked_tmp_ht[self_index_tuple]
+        self_features = self.f_self(self_ht)  # 使用 MLP 处理
+        expanded_self_ht = self_ht.unsqueeze(dim=1).repeat(1, self.concept_num, 1)
+        neigh_ht = torch.cat((expanded_self_ht, masked_tmp_ht), dim=-1)
         concept_embedding, rec_embedding, z_prob = None, None, None
 
         if self.graph_type in ['Dense', 'Transition', 'DKT', 'PAM']:
-            adj = self.graph[masked_qt.long(), :].unsqueeze(dim=-1)  # [mask_num, concept_num, 1]
-            reverse_adj = self.graph[:, masked_qt.long()].transpose(0, 1).unsqueeze(dim=-1)  # [mask_num, concept_num, 1]
-            # self.f_neighbor_list[0](neigh_ht) shape: [mask_num, concept_num, hidden_dim]
+            adj = self.graph[masked_qt.long(), :].unsqueeze(dim=-1)
+            reverse_adj = self.graph[:, masked_qt.long()].transpose(0, 1).unsqueeze(dim=-1)
             neigh_features = adj * self.f_neighbor_list[0](neigh_ht) + reverse_adj * self.f_neighbor_list[1](neigh_ht)
         else:  # ['MHA', 'VAE']
             concept_index = torch.arange(self.concept_num, device=qt.device)
-            concept_embedding = self.emb_c(concept_index)  # [concept_num, embedding_dim]
+            concept_embedding = self.emb_c(concept_index)
             if self.graph_type == 'MHA':
                 query = self.emb_c(masked_qt)
                 key = concept_embedding
@@ -152,55 +150,51 @@ class GKT(nn.Module):
                 graphs = self.graph_model(masked_qt, query, key, att_mask)
             else:  # self.graph_type == 'VAE'
                 sp_send, sp_rec, sp_send_t, sp_rec_t = self._get_edges(masked_qt)
-                graphs, rec_embedding, z_prob = self.graph_model(concept_embedding, sp_send, sp_rec, sp_send_t, sp_rec_t)
+                graphs, rec_embedding, z_prob = self.graph_model(concept_embedding, sp_send, sp_rec, sp_send_t,
+                                                                 sp_rec_t)
             neigh_features = 0
             for k in range(self.edge_type_num):
-                adj = graphs[k][masked_qt, :].unsqueeze(dim=-1)  # [mask_num, concept_num, 1]
+                adj = graphs[k][masked_qt, :].unsqueeze(dim=-1)
                 if k == 0:
                     neigh_features = adj * self.f_neighbor_list[k](neigh_ht)
                 else:
                     neigh_features = neigh_features + adj * self.f_neighbor_list[k](neigh_ht)
             if self.graph_type == 'MHA':
                 neigh_features = 1. / self.edge_type_num * neigh_features
-        # neigh_features: [mask_num, concept_num, hidden_dim]
         m_next = tmp_ht[:, :, :self.hidden_dim]
         m_next[qt_mask] = neigh_features
         m_next[qt_mask] = m_next[qt_mask].index_put(self_index_tuple, self_features)
         return m_next, concept_embedding, rec_embedding, z_prob
 
-    # Update step, as shown in Section 3.3.2 of the paper
-    def _update(self, tmp_ht, ht, qt):
-        r"""
-        Parameters:
-            tmp_ht: temporal hidden representations of all concepts after the aggregate step
-            ht: hidden representations of all concepts at the current timestamp
-            qt: question indices for all students in a batch at the current timestamp
-        Shape:
-            tmp_ht: [batch_size, concept_num, hidden_dim + embedding_dim]
-            ht: [batch_size, concept_num, hidden_dim]
-            qt: [batch_size]
-            h_next: [batch_size, concept_num, hidden_dim]
-        Return:
-            h_next: hidden representations of all concepts at the next timestamp
-            concept_embedding: input of VAE (optional)
-            rec_embedding: reconstructed input of VAE (optional)
-            z_prob: probability distribution of latent variable z in VAE (optional)
-        """
-        qt_mask = torch.ne(qt, -1)  # [batch_size], qt != -1
-        mask_num = qt_mask.nonzero().shape[0]
-        # GNN Aggregation
-        m_next, concept_embedding, rec_embedding, z_prob = self._agg_neighbors(tmp_ht, qt)  # [batch_size, concept_num, hidden_dim]
+    # 确保 EraseAddGate 输出后仍能处理 NaN。
+    def _update(self, tmp_ht, ht, qt, batch_idx):
+        qt_mask = torch.ne(qt, -1)
+        if not qt_mask.any():
+            return torch.zeros_like(ht), torch.zeros_like(tmp_ht), torch.zeros_like(tmp_ht), torch.zeros(1,
+                                                                                                         device=qt.device)
+        m_next, concept_embedding, rec_embedding, z_prob = self._agg_neighbors(tmp_ht, qt)
         m_next = torch.clamp(m_next, min=-10, max=10)
-        # Erase & Add Gate
-        m_next[qt_mask] = self.erase_add_gate(m_next[qt_mask])  # [mask_num, concept_num, hidden_dim]
-        # GRU
+        if torch.isnan(m_next).any() or torch.isinf(m_next).any():
+            print(f"NaN/Inf in m_next before erase_add_gate, resetting affected values")
+            m_next[torch.isnan(m_next) | torch.isinf(m_next)] = 0.0
+        # 应用 EraseAddGate
+        m_next[qt_mask] = self.erase_add_gate(m_next[qt_mask])  # 确保 erase_add_gate 已正确初始化
+        if torch.isnan(m_next).any() or torch.isinf(m_next).any():
+            print(f"NaN/Inf in m_next after erase_add_gate, investigating")
+            for name, param in self.named_parameters():
+                if torch.isnan(param).any() or torch.isinf(param).any():
+                    print(f"NaN/Inf parameter in {name}")
+        res = self.gru(m_next[qt_mask].reshape(-1, self.hidden_dim), ht[qt_mask].reshape(-1, self.hidden_dim))
+        if batch_idx is not None:
+            print(
+                f"Batch {batch_idx}, GRU output min={res.min().item()}, max={res.max().item()}, nan={torch.isnan(res).any()}")
+        if torch.isnan(res).any() or torch.isinf(res).any():
+            print(f"NaN/Inf in GRU output, resetting affected values")
+            res[torch.isnan(res) | torch.isinf(res)] = 0.0
         h_next = m_next
-        res = self.gru(m_next[qt_mask].reshape(-1, self.hidden_dim), ht[qt_mask].reshape(-1, self.hidden_dim))  # [mask_num * concept_num, hidden_num]
-        index_tuple = (torch.arange(mask_num, device=qt_mask.device), )
+        index_tuple = (torch.arange(qt_mask.nonzero().shape[0], device=qt_mask.device),)
         h_next[qt_mask] = h_next[qt_mask].index_put(index_tuple, res.reshape(-1, self.concept_num, self.hidden_dim))
         return h_next, concept_embedding, rec_embedding, z_prob
-
-    # Predict step, as shown in Section 3.3.3 of the paper
     def _predict(self, h_next, qt):
         r"""
         Parameters:
@@ -281,7 +275,7 @@ class GKT(nn.Module):
 
 
 
-    def forward(self, features, questions):
+    def forward(self, features, questions,batch_idx):
         batch_size, seq_len = features.shape
         device = features.device
         ht = torch.zeros((batch_size, self.concept_num, self.hidden_dim), device=device)
@@ -301,7 +295,7 @@ class GKT(nn.Module):
             if torch.isnan(tmp_ht).any() or torch.isinf(tmp_ht).any():
                 print(f"Step {i} - tmp_ht: nan/inf, min={tmp_ht.min().item()}, max={tmp_ht.max().item()}")
 
-            h_next, concept_embedding, rec_embedding, z_prob = self._update(tmp_ht, ht, qt)
+            h_next, concept_embedding, rec_embedding, z_prob = self._update(tmp_ht, ht, qt, batch_idx)  # 或者其他您认为合适的批次索引
             if torch.isnan(h_next).any() or torch.isinf(h_next).any():
                 print(f"Step {i} - h_next: nan/inf, min={h_next.min().item()}, max={h_next.max().item()}")
 
