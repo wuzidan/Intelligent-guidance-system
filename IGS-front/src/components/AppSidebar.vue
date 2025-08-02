@@ -1,150 +1,408 @@
 <template>
-  <!-- 左侧导航栏 -->
-  <nav class="sidebar">
-    <div class="logo">智能导学系统</div>
-    <ul class="menu">
-      <li class="menu-item" :class="{ active: activeMenu === 'answer' }">
-        <div class="menu-title" @click="toggleMenu('answer')">
-          <span class="icon">📝</span>
-          <span>答题模块</span>
+    <!-- 左侧导航栏 -->
+    <nav class="sidebar">
+        <!-- 高光装饰元素 -->
+        <div class="sidebar-glow"></div>
+
+        <div class="logo-container">
+            <div class="logo-icon">📚</div>
+            <div class="logo-text">智能导学系统</div>
         </div>
-        <ul class="submenu" v-if="activeMenu === 'answer'">
-          <li><a href="#" :class="{ 'active-submenu': activeSubmenu === '题库' }" @click="setActiveSubmenu('题库')">题库</a></li>
-          <li><a href="#" :class="{ 'active-submenu': activeSubmenu === '作答历史' }" @click="setActiveSubmenu('作答历史')">作答历史</a></li>
+
+        <ul class="menu">
+            <!-- 答题模块 -->
+            <li
+                class="menu-item"
+                :class="{ active: activeMenu === 'answer' }"
+                data-menu="answer"
+            >
+                <div class="menu-title" @click="toggleMenu('answer')">
+                    <span class="icon">📝</span>
+                    <span>答题模块</span>
+                    <span
+                        class="arrow"
+                        :class="{ rotate: activeMenu === 'answer' }"
+                        >▼</span
+                    >
+                </div>
+                <ul class="submenu" v-if="activeMenu === 'answer'">
+                    <li>
+                        <router-link
+                            to="/quiz-challenge"
+                            :class="{
+                                'active-submenu': activeSubmenu === '题库中心',
+                            }"
+                            @click="setActiveSubmenu('题库中心')"
+                        >
+                            <span class="submenu-dot"></span>题库中心
+                        </router-link>
+                    </li>
+                    <li>
+                        <router-link
+                            to="/history"
+                            :class="{
+                                'active-submenu': activeSubmenu === '作答历史',
+                            }"
+                            @click="setActiveSubmenu('作答历史')"
+                        >
+                            <span class="submenu-dot"></span>作答历史
+                        </router-link>
+                    </li>
+                </ul>
+            </li>
+
+            <li
+                class="menu-item"
+                :class="{ active: activeMenu === 'knowledge' }"
+                data-menu="knowledge"
+            >
+                <div class="menu-title" @click="toggleMenu('knowledge')">
+                    <span class="icon">📊</span>
+                    <span>知识状态</span>
+                    <span
+                        class="arrow"
+                        :class="{ rotate: activeMenu === 'knowledge' }"
+                        >▼</span
+                    >
+                </div>
+                <ul class="submenu" v-if="activeMenu === 'knowledge'">
+                    <li>
+                        <router-link
+                            to="/"
+                            :class="{
+                                'active-submenu':
+                                    activeSubmenu === '状态可视化',
+                            }"
+                            @click="setActiveSubmenu('状态可视化')"
+                        >
+                            <span class="submenu-dot"></span>状态可视化
+                        </router-link>
+                    </li>
+                    <li>
+                        <router-link
+                            to="/knowledge-structure"
+                            :class="{
+                                'active-submenu': activeSubmenu === '知识结构',
+                            }"
+                            @click="setActiveSubmenu('知识结构')"
+                        >
+                            <span class="submenu-dot"></span>知识结构
+                        </router-link>
+                    </li>
+                </ul>
+            </li>
+
+            <li
+                class="menu-item"
+                :class="{ active: activeMenu === 'info' }"
+                data-menu="info"
+            >
+                <div class="menu-title" @click="toggleMenu('info')">
+                    <span class="icon">👤</span>
+                    <span>信息模块</span>
+                    <span
+                        class="arrow"
+                        :class="{ rotate: activeMenu === 'info' }"
+                        >▼</span
+                    >
+                </div>
+                <ul class="submenu" v-if="activeMenu === 'info'">
+                    <li>
+                        <router-link
+                            to="/user-info"
+                            :class="{
+                                'active-submenu': activeSubmenu === '个人信息',
+                            }"
+                            @click="setActiveSubmenu('个人信息')"
+                        >
+                            <span class="submenu-dot"></span>个人信息
+                        </router-link>
+                    </li>
+                </ul>
+            </li>
         </ul>
-      </li>
-      <li class="menu-item" :class="{ active: activeMenu === 'knowledge' }">
-        <div class="menu-title" @click="toggleMenu('knowledge')">
-          <span class="icon">📊</span>
-          <span>知识状态</span>
-        </div>
-        <ul class="submenu" v-if="activeMenu === 'knowledge'">
-          <li><router-link to="/" :class="{ 'active-submenu': activeSubmenu === '知识可视化' }" @click="setActiveSubmenu('状态可视化')">状态可视化</router-link></li>
-          <li><a href="#" :class="{ 'active-submenu': activeSubmenu === '知识结构' }" @click="setActiveSubmenu('知识结构')">知识结构</a></li>
-        </ul>
-      </li>
-      <li class="menu-item" :class="{ active: activeMenu === 'info' }">
-        <div class="menu-title" @click="toggleMenu('info')">
-          <span class="icon">👤</span>
-          <span>信息模块</span>
-        </div>
-        <ul class="submenu" v-if="activeMenu === 'info'">
-          <li><router-link to="/user-info" :class="{ 'active-submenu': activeSubmenu === '个人信息' }" @click="setActiveSubmenu('个人信息')">个人信息</router-link></li>
-        </ul>
-      </li>
-    </ul>
-  </nav>
+
+        <div class="sidebar-footer"></div>
+    </nav>
 </template>
 
 <script>
-// 侧边栏组件脚本
-import { ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { ref, watch } from "vue";
+import { RouterLink, useRoute } from "vue-router";
 
 export default {
-  name: 'AppSidebar',
-  setup() {
-    // 响应式引用，用于跟踪当前激活的菜单
-    const activeMenu = ref('knowledge');
-    // 响应式引用，用于跟踪当前激活的子菜单
-    const activeSubmenu = ref('状态可视化');
-    
-    // 切换菜单展开/收起状态的函数
-    const toggleMenu = (menuName) => {
-      activeMenu.value = activeMenu.value === menuName ? '' : menuName;
-    };
-    
-    // 设置当前激活的子菜单
-    const setActiveSubmenu = (submenuName) => {
-      activeSubmenu.value = submenuName;
-    };
-    
-    // 暴露状态和方法给模板使用
-    return {
-      activeMenu,
-      activeSubmenu,
-      toggleMenu,
-      setActiveSubmenu
-    };
-  }
+    name: "AppSidebar",
+    components: { RouterLink },
+    setup() {
+        const route = useRoute();
+        const activeMenu = ref("knowledge");
+        const activeSubmenu = ref("状态可视化");
+
+        // 根据当前路由自动激活对应菜单
+        watch(
+            () => route.path,
+            (newPath) => {
+                switch (newPath) {
+                    case "/quiz-challenge":
+                        activeMenu.value = "answer";
+                        activeSubmenu.value = "题库中心";
+                        break;
+                    case "/history":
+                        activeMenu.value = "answer";
+                        activeSubmenu.value = "作答历史";
+                        break;
+                    case "/":
+                        activeMenu.value = "knowledge";
+                        activeSubmenu.value = "状态可视化";
+                        break;
+                    case "/knowledge-structure":
+                        activeMenu.value = "knowledge";
+                        activeSubmenu.value = "知识结构";
+                        break;
+                    case "/user-info":
+                        activeMenu.value = "info";
+                        activeSubmenu.value = "个人信息";
+                        break;
+                }
+            },
+            { immediate: true }
+        );
+
+        const toggleMenu = (menuName) => {
+            const menuItem = document.querySelector(
+                `.menu-item[data-menu="${menuName}"]`
+            );
+            if (menuItem) {
+                menuItem.classList.add("menu-transition");
+                void menuItem.offsetWidth;
+                activeMenu.value =
+                    activeMenu.value === menuName ? "" : menuName;
+                setTimeout(
+                    () => menuItem.classList.remove("menu-transition"),
+                    300
+                );
+            }
+        };
+
+        const setActiveSubmenu = (submenuName) => {
+            activeSubmenu.value = submenuName;
+        };
+
+        return {
+            activeMenu,
+            activeSubmenu,
+            toggleMenu,
+            setActiveSubmenu,
+        };
+    },
 };
 </script>
 
 <style scoped>
-/* 侧边栏样式 */
+/* 侧边栏基础样式 - 增宽至260px */
 .sidebar {
-  width: 250px;
-  background-color: #2c3e50;
-  color: white;
-  padding: 20px 0;
-  height: 100vh;
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 100;
+    width: 260px; /* 原250px增加10px */
+    background: linear-gradient(
+        180deg,
+        #162436 0%,
+        #2c3e50 100%
+    ); /* 增强的渐变背景 */
+    color: #ecf0f1;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    box-shadow: 2px 0 20px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
 }
 
-.logo {
-  font-size: 20px;
-  font-weight: bold;
-  padding: 0 20px 20px;
-  border-bottom: 1px solid #34495e;
-  margin-bottom: 20px;
+/* 高光效果 */
+.sidebar-glow {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 40px;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.03) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    pointer-events: none;
+    z-index: 1;
 }
 
+/* Logo区域 - 调大字体 */
+.logo-container {
+    display: flex;
+    align-items: center;
+    padding: 22px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 2;
+}
+
+.logo-icon {
+    font-size: 26px; /* 略微增大图标 */
+    margin-right: 14px;
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #3498db, #9b59b6);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+}
+
+.logo-text {
+    font-size: 20px; /* 调大标题字体 */
+    font-weight: 600;
+    background: linear-gradient(90deg, #3498db, #ecf0f1);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* 菜单样式 - 调大字体 */
 .menu {
-  list-style: none;
+    list-style: none;
+    padding: 0 12px;
+    position: relative;
+    z-index: 2;
 }
 
 .menu-item {
-  margin-bottom: 5px;
+    margin-bottom: 6px;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.menu-item.menu-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .menu-title {
-  padding: 12px 20px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  transition: background-color 0.3s;
+    padding: 15px 22px; /* 增加内边距配合大字体 */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    font-weight: 500;
+    font-size: 16px; /* 调大菜单标题字体 */
 }
 
 .menu-title:hover {
-  background-color: #34495e;
+    background-color: rgba(255, 255, 255, 0.08);
+    padding-left: 24px;
 }
 
-.menu-title .icon {
-  margin-right: 10px;
-  font-size: 18px;
+.menu-item.active .menu-title {
+    background-color: rgba(52, 152, 219, 0.15);
+    color: #3498db;
 }
 
+.menu-item.active .menu-title::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 4px;
+    background: linear-gradient(180deg, #3498db, #9b59b6);
+}
+
+.icon {
+    margin-right: 14px;
+    font-size: 20px; /* 调大图标 */
+    width: 26px;
+    text-align: center;
+}
+
+.arrow {
+    font-size: 15px; /* 调大箭头 */
+    transition: transform 0.3s ease;
+    opacity: 0.7;
+}
+
+.arrow.rotate {
+    transform: rotate(-90deg);
+    opacity: 1;
+}
+
+/* 子菜单样式 - 调大字体 */
 .submenu {
-  list-style: none;
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease-out;
+    list-style: none;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    padding-left: 0;
 }
 
 .menu-item.active .submenu {
-  max-height: 200px;
+    max-height: 300px;
+    padding-left: 0;
+}
+
+.submenu li {
+    margin: 2px 0;
 }
 
 .submenu li a {
-  display: block;
-  padding: 10px 20px 10px 50px;
-  color: #bdc3c7;
-  text-decoration: none;
-  transition: background-color 0.3s, color 0.3s;
+    display: flex;
+    align-items: center;
+    padding: 13px 22px 13px 58px;
+    color: #bdc3c7;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-radius: 6px;
+    font-size: 15px; /* 调大子菜单字体 */
 }
 
 .submenu li a:hover {
-  background-color: #34495e;
-  color: white;
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #3498db;
+    padding-left: 60px;
 }
 
-/* 激活的子菜单样式 */
+.submenu-dot {
+    width: 7px; /* 调大圆点 */
+    height: 7px;
+    border-radius: 50%;
+    background-color: #bdc3c7;
+    margin-right: 12px; /* 增加间距 */
+    transition: all 0.3s ease;
+}
+
+.submenu li a:hover .submenu-dot {
+    background-color: #3498db;
+    transform: scale(1.3);
+}
+
 .submenu li a.active-submenu {
-  background-color: #34495e;
-  color: white;
-  font-weight: bold;
+    background-color: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+    font-weight: 500;
+}
+
+.submenu li a.active-submenu .submenu-dot {
+    background-color: #3498db;
+}
+
+/* 底部装饰 */
+.sidebar-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 80px;
+    background: linear-gradient(0deg, rgba(155, 89, 182, 0.15), transparent);
+    pointer-events: none;
 }
 </style>
