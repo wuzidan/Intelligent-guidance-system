@@ -85,13 +85,13 @@
             </div>
 
             <!-- 知识掌握度图表 -->
-            <div class="card chart-container">
+            <div class="chart-container">
                 <h3>知识掌握度</h3>
                 <canvas id="knowledgeChart"></canvas>
             </div>
 
             <!-- 学习时长图表 -->
-            <div class="card chart-container">
+            <div class="chart-container">
                 <h3>学习时长</h3>
                 <canvas id="learningHoursChart"></canvas>
             </div>
@@ -299,26 +299,152 @@ export default {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
-    padding: 20px;
-    border-bottom: 1px solid #ddd;
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    padding: 18px 24px; /* 调整内边距，上下稍窄左右稍宽 */
+    border-bottom: 2px solid transparent;
+    border-image: linear-gradient(90deg, #3498db, #9b59b6) 1; /* 渐变色下边框 */
+    background: linear-gradient(
+        135deg,
+        #ffffff 0%,
+        #f8fafc 100%
+    ); /* 微妙的渐变背景 */
+    border-radius: 12px; /* 增大圆角，更柔和 */
+    box-shadow: 0 4px 20px rgba(52, 152, 219, 0.08); /* 浅蓝色调阴影，与主题呼应 */
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* 统一动画曲线 */
+}
+
+/* 顶部高光装饰 */
+.header::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #3498db, #9b59b6, #3498db);
+    background-size: 200% 100%;
+    animation: headerGlow 6s ease-in-out infinite; /* 渐变光流动画 */
+}
+
+/* 标题文字样式优化 */
+.header h1 {
+    margin: 0;
+    font-size: 30px;
+    font-weight: 600;
+    background: linear-gradient(90deg, #2c3e50, #34495e);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    position: relative;
+    padding-left: 12px;
+    transition: transform 0.3s ease;
+}
+
+/* 标题左侧小装饰 */
+.header h1::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 60%;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #3498db, #9b59b6);
+}
+
+/* 用户信息区域动画 */
+.user-info {
+    display: flex;
+    align-items: center;
+    transition: transform 0.3s ease;
+}
+
+/* 退出按钮美化 */
+.logout-btn {
+    margin-left: 15px;
+    padding: 9px 18px;
+    background: linear-gradient(90deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+}
+
+/* 按钮悬停效果 */
+.logout-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+    background: linear-gradient(90deg, #2980b9, #3498db);
+}
+
+/* 按钮点击波纹效果 */
+.logout-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.6s ease;
+}
+
+.logout-btn:active::after {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+/* 整体悬停动画 */
+.header:hover {
+    box-shadow: 0 6px 25px rgba(52, 152, 219, 0.12);
+    transform: translateY(-2px);
+}
+
+.header:hover h1 {
+    transform: translateX(5px);
+}
+
+.header:hover .user-info {
+    transform: translateX(-5px);
+}
+
+/* 顶部渐变光流动画 */
+@keyframes headerGlow {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
 }
 
 .user-info {
+    font-size: 15px;
     display: flex;
     align-items: center;
 }
 
 .logout-btn {
     margin-left: 15px;
-    padding: 5px 10px;
+    padding: 8px 15px;
     background-color: #e74c3c;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    font-size: 16px;
 }
 
 .dashboard {
@@ -329,15 +455,119 @@ export default {
 }
 
 .card {
-    background-color: white;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(145deg, #ffffff 0%, #f0f7ff 100%);
+    border-radius: 10px;
+    padding: 22px;
+    box-shadow: 0 3px 12px rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(240, 249, 255, 0.8);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 左侧蓝色渐变装饰条 */
+.card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 4px;
+    background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+    transform: scaleY(0.8);
+    opacity: 0.7;
+    transition: all 0.4s ease;
+}
+
+/* 顶部横向渐变光条 */
+.card::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(59, 130, 246, 0.25),
+        transparent
+    );
+    transform: translateX(-100%);
+    transition: transform 0.7s ease-in-out;
 }
 
 .card h3 {
-    margin-bottom: 15px;
-    color: #2c3e50;
+    margin-bottom: 18px;
+    color: #1e3a8a;
+    font-size: 18px;
+    font-weight: 600;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed rgba(59, 130, 246, 0.2);
+    position: relative;
+    display: inline-block;
+    transition: color 0.3s ease;
+}
+
+/* 标题前蓝色装饰图标 */
+.card h3::before {
+    content: "▷";
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 14px;
+    color: #3b82f6;
+    vertical-align: middle;
+    transform: scale(0.9) translateX(-2px);
+    transition: transform 0.3s ease;
+}
+
+/* 悬停动画效果 */
+.card:hover {
+    transform: translateY(-5px) scale(1.01);
+    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.15);
+    border-color: rgba(191, 219, 254, 0.8);
+}
+
+.card:hover::before {
+    transform: scaleY(1);
+    opacity: 1;
+}
+
+.card:hover::after {
+    transform: translateX(100%);
+}
+
+.card:hover h3 {
+    color: #2563eb;
+}
+
+.card:hover h3::before {
+    transform: scale(1.2) translateX(0) rotate(90deg);
+    color: #2563eb;
+}
+
+/* 卡片内元素延迟动画 */
+.card .progress-item,
+.card .stat-item {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    opacity: 0.9;
+}
+
+.card:hover .progress-item,
+.card:hover .stat-item {
+    transform: translateX(3px);
+    opacity: 1;
+}
+
+/* 子元素依次动画 */
+.card:hover .progress-item:nth-child(2),
+.card:hover .stat-item:nth-child(2) {
+    transition-delay: 0.1s;
+}
+
+.card:hover .progress-item:nth-child(3),
+.card:hover .stat-item:nth-child(3) {
+    transition-delay: 0.2s;
 }
 
 .stats {

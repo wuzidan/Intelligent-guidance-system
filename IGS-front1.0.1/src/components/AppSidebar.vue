@@ -169,19 +169,7 @@ export default {
         );
 
         const toggleMenu = (menuName) => {
-            const menuItem = document.querySelector(
-                `.menu-item[data-menu="${menuName}"]`
-            );
-            if (menuItem) {
-                menuItem.classList.add("menu-transition");
-                void menuItem.offsetWidth;
-                activeMenu.value =
-                    activeMenu.value === menuName ? "" : menuName;
-                setTimeout(
-                    () => menuItem.classList.remove("menu-transition"),
-                    300
-                );
-            }
+            activeMenu.value = activeMenu.value === menuName ? "" : menuName;
         };
 
         const setActiveSubmenu = (submenuName) => {
@@ -199,14 +187,10 @@ export default {
 </script>
 
 <style scoped>
-/* 侧边栏基础样式 - 增宽至260px */
+/* 侧边栏基础样式 */
 .sidebar {
-    width: 260px; /* 原250px增加10px */
-    background: linear-gradient(
-        180deg,
-        #162436 0%,
-        #2c3e50 100%
-    ); /* 增强的渐变背景 */
+    width: 260px;
+    background: linear-gradient(180deg, #162436 0%, #2c3e50 100%);
     color: #ecf0f1;
     height: 100vh;
     position: fixed;
@@ -215,9 +199,11 @@ export default {
     z-index: 100;
     box-shadow: 2px 0 20px rgba(0, 0, 0, 0.2);
     overflow: hidden;
+    transform: translateX(0);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* 高光效果 */
+/* 高光效果增强 */
 .sidebar-glow {
     position: absolute;
     top: 0;
@@ -232,9 +218,14 @@ export default {
     );
     pointer-events: none;
     z-index: 1;
+    transition: opacity 0.3s ease;
 }
 
-/* Logo区域 - 调大字体 */
+.sidebar:hover .sidebar-glow {
+    opacity: 0.8;
+}
+
+/* Logo区域动画 */
 .logo-container {
     display: flex;
     align-items: center;
@@ -246,7 +237,7 @@ export default {
 }
 
 .logo-icon {
-    font-size: 26px; /* 略微增大图标 */
+    font-size: 26px;
     margin-right: 14px;
     width: 44px;
     height: 44px;
@@ -256,18 +247,29 @@ export default {
     align-items: center;
     justify-content: center;
     box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.logo-container:hover .logo-icon {
+    transform: scale(1.05) rotate(5deg);
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.5);
 }
 
 .logo-text {
-    font-size: 20px; /* 调大标题字体 */
+    font-size: 20px;
     font-weight: 600;
     background: linear-gradient(90deg, #3498db, #ecf0f1);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    transition: letter-spacing 0.3s ease;
 }
 
-/* 菜单样式 - 调大字体 */
+.logo-container:hover .logo-text {
+    letter-spacing: 0.5px;
+}
+
+/* 菜单基础样式 */
 .menu {
     list-style: none;
     padding: 0 12px;
@@ -282,25 +284,23 @@ export default {
     transition: all 0.3s ease;
 }
 
-.menu-item.menu-transition {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
+/* 主菜单标题动画 */
 .menu-title {
-    padding: 15px 22px; /* 增加内边距配合大字体 */
+    padding: 15px 22px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
     font-weight: 500;
-    font-size: 16px; /* 调大菜单标题字体 */
+    font-size: 16px;
 }
 
 .menu-title:hover {
     background-color: rgba(255, 255, 255, 0.08);
     padding-left: 24px;
+    transform: translateX(3px);
 }
 
 .menu-item.active .menu-title {
@@ -308,6 +308,7 @@ export default {
     color: #3498db;
 }
 
+/* 选中状态装饰条动画 */
 .menu-item.active .menu-title::before {
     content: "";
     position: absolute;
@@ -316,32 +317,50 @@ export default {
     height: 100%;
     width: 4px;
     background: linear-gradient(180deg, #3498db, #9b59b6);
+    transform: scaleY(0);
+    animation: fillHeight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes fillHeight {
+    0% {
+        transform: scaleY(0);
+    }
+    100% {
+        transform: scaleY(1);
+    }
 }
 
 .icon {
     margin-right: 14px;
-    font-size: 20px; /* 调大图标 */
+    font-size: 20px;
     width: 26px;
     text-align: center;
+    transition: transform 0.3s ease;
 }
 
+.menu-title:hover .icon {
+    transform: scale(1.15);
+}
+
+/* 箭头动画 */
 .arrow {
-    font-size: 15px; /* 调大箭头 */
-    transition: transform 0.3s ease;
+    font-size: 15px;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     opacity: 0.7;
+    transform-origin: center;
 }
 
 .arrow.rotate {
-    transform: rotate(-90deg);
+    transform: rotate(-90deg) scale(1.1);
     opacity: 1;
 }
 
-/* 子菜单样式 - 调大字体 */
+/* 子菜单弹出动画 */
 .submenu {
     list-style: none;
     overflow: hidden;
     max-height: 0;
-    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: max-height 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     padding-left: 0;
 }
 
@@ -352,39 +371,77 @@ export default {
 
 .submenu li {
     margin: 2px 0;
+    opacity: 0;
+    transform: translateX(-10px);
+    animation: fadeIn 0.3s ease forwards;
 }
 
+/* 子菜单项依次出现 */
+.menu-item.active .submenu li:nth-child(1) {
+    animation-delay: 0.1s;
+}
+.menu-item.active .submenu li:nth-child(2) {
+    animation-delay: 0.2s;
+}
+.menu-item.active .submenu li:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 子菜单链接样式 */
 .submenu li a {
     display: flex;
     align-items: center;
     padding: 13px 22px 13px 58px;
     color: #bdc3c7;
     text-decoration: none;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     border-radius: 6px;
-    font-size: 15px; /* 调大子菜单字体 */
+    font-size: 15px;
+    position: relative;
+    overflow: hidden;
 }
 
+/* 子菜单悬停效果 */
 .submenu li a:hover {
     background-color: rgba(255, 255, 255, 0.05);
     color: #3498db;
     padding-left: 60px;
 }
 
+.submenu li a:hover::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 3px;
+    background: linear-gradient(180deg, #3498db, #9b59b6);
+}
+
+/* 子菜单圆点动画 */
 .submenu-dot {
-    width: 7px; /* 调大圆点 */
+    width: 7px;
     height: 7px;
     border-radius: 50%;
     background-color: #bdc3c7;
-    margin-right: 12px; /* 增加间距 */
-    transition: all 0.3s ease;
+    margin-right: 12px;
+    transition: all 0.5s ease;
 }
 
 .submenu li a:hover .submenu-dot {
     background-color: #3498db;
-    transform: scale(1.3);
+    transform: scale(1.3) translateY(1px);
+    box-shadow: 0 0 8px rgba(52, 152, 219, 0.6);
 }
 
+/* 子菜单选中样式 */
 .submenu li a.active-submenu {
     background-color: rgba(52, 152, 219, 0.1);
     color: #3498db;
@@ -393,9 +450,10 @@ export default {
 
 .submenu li a.active-submenu .submenu-dot {
     background-color: #3498db;
+    box-shadow: 0 0 8px rgba(52, 152, 219, 0.6);
 }
 
-/* 底部装饰 */
+/* 底部装饰动画 */
 .sidebar-footer {
     position: absolute;
     bottom: 0;
@@ -404,5 +462,12 @@ export default {
     height: 80px;
     background: linear-gradient(0deg, rgba(155, 89, 182, 0.15), transparent);
     pointer-events: none;
+    opacity: 0.7;
+    transition: opacity 7s ease, height 0.7s ease;
+}
+
+.sidebar:hover .sidebar-footer {
+    opacity: 1;
+    height: 100px;
 }
 </style>
